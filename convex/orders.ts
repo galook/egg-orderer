@@ -1,4 +1,4 @@
-import { mutation, query } from "convex/server";
+import { mutationGeneric, queryGeneric } from "convex/server";
 import { v } from "convex/values";
 
 const eggSeconds: Record<string, number> = {
@@ -14,7 +14,7 @@ const getSettings = async (ctx: any) => {
     .first();
 };
 
-export const create = mutation({
+export const create = mutationGeneric({
   args: {
     userId: v.id("users"),
     eggType: v.union(v.literal("soft"), v.literal("medium"), v.literal("hard")),
@@ -35,7 +35,7 @@ export const create = mutation({
   }
 });
 
-export const list = query({
+export const list = queryGeneric({
   args: {},
   handler: async (ctx) => {
     const orders = await ctx.db.query("orders").order("desc").collect();
@@ -48,7 +48,7 @@ export const list = query({
   }
 });
 
-export const listByUser = query({
+export const listByUser = queryGeneric({
   args: { userId: v.string() },
   handler: async (ctx, args) => {
     const orders = await ctx.db
@@ -60,7 +60,7 @@ export const listByUser = query({
   }
 });
 
-export const startCooking = mutation({
+export const startCooking = mutationGeneric({
   args: {},
   handler: async (ctx) => {
     const settings = await getSettings(ctx);
@@ -84,7 +84,7 @@ export const startCooking = mutation({
   }
 });
 
-export const schedule = query({
+export const schedule = queryGeneric({
   args: {},
   handler: async (ctx) => {
     const orders = await ctx.db.query("orders").collect();
