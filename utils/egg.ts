@@ -5,19 +5,22 @@ export const eggTypes = [
     value: "soft",
     label: "na měkko",
     tag: "Silky",
-    description: "Silky white with a bright, flowing yolk."
+    description: "Silky white with a bright, flowing yolk.",
+    minutes: 4
   },
   {
     value: "medium",
     label: "na hniličku",
     tag: "Jammy",
-    description: "A jammy center with tender whites."
+    description: "A jammy center with tender whites.",
+    minutes: 7
   },
   {
     value: "hard",
     label: "na tvrdo",
     tag: "Firm",
-    description: "Fully set, sliceable, classic breakfast."
+    description: "Fully set, sliceable, classic breakfast.",
+    minutes: 10
   }
 ] as const;
 
