@@ -1,5 +1,38 @@
 <template>
   <div class="page">
+    <div class="toasts" aria-live="polite" aria-label="Notifications">
+      <div
+        v-for="note in notifications"
+        :key="note.id"
+        class="toast"
+        :class="note.type"
+        role="status"
+      >
+        <div>
+          <p class="toast-title">{{ note.title }}</p>
+          <p class="toast-message">{{ note.message }}</p>
+        </div>
+        <button class="toast-close" @click="dismissNotification(note.id)" aria-label="Dismiss">
+          &times;
+        </button>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" v-if="confirmState.open" role="dialog" aria-modal="true">
+      <div class="modal">
+        <p class="modal-title">{{ confirmState.title }}</p>
+        <p class="modal-message">{{ confirmState.message }}</p>
+        <div class="modal-actions">
+          <button class="ghost" @click="resolveConfirm(false)">
+            {{ confirmState.cancelLabel }}
+          </button>
+          <button class="danger" @click="resolveConfirm(true)">
+            {{ confirmState.confirmLabel }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <header class="hero">
       <div class="hero-copy">
         <div class="brand">
@@ -13,27 +46,27 @@
           A live breakfast command center that turns boiling chaos into perfectly timed eggs.
         </p>
         <div class="hero-steps">
-          <div class="step">
+          <a class="step" href="#register">
             <span class="step-number">01</span>
             <div>
               <p class="step-title">Register</p>
               <p class="step-text">Choose a name and role.</p>
             </div>
-          </div>
-          <div class="step">
+          </a>
+          <a class="step" href="#order">
             <span class="step-number">02</span>
             <div>
               <p class="step-title">Order</p>
               <p class="step-text">Pick your egg style and quantity.</p>
             </div>
-          </div>
-          <div class="step">
+          </a>
+          <a class="step" href="#kitchen">
             <span class="step-number">03</span>
             <div>
               <p class="step-title">Serve</p>
               <p class="step-text">Follow the pull-out schedule.</p>
             </div>
-          </div>
+          </a>
         </div>
       </div>
 
@@ -279,20 +312,20 @@
               <p>No orders yet.</p>
               <span>Share the link to start the breakfast wave.</span>
             </div>
-            <div
-              class="order-card"
-              :class="[`type-${order.eggType}`, statusTone(order)]"
-              v-for="order in orders"
-              :key="order._id"
-            >
-              <div class="order-info">
-                <p class="pill">{{ eggLabel(order.eggType) }}</p>
-                <h4>{{ order.quantity }} egg(s)</h4>
-                <p class="muted">{{ order.user?.name }} · {{ formatTime(order.createdAt) }}</p>
-              </div>
-              <div class="status">
-                <p class="label">Progress</p>
-                <p class="value" :class="{ ready: isReady(order.readyAt) }">
+          <div
+            class="order-card"
+            :class="[`type-${order.eggType}`, statusTone(order)]"
+            v-for="order in aggregatedOrders"
+            :key="order.key"
+          >
+            <div class="order-info">
+              <p class="pill">{{ eggLabel(order.eggType) }}</p>
+              <h4>{{ order.quantity }} egg(s)</h4>
+              <p class="muted">{{ order.userName }} · {{ formatTime(order.latestCreatedAt) }}</p>
+            </div>
+            <div class="status">
+              <p class="label">Progress</p>
+              <p class="value" :class="{ ready: isReady(order.readyAt) }">
                   {{ orderStatus(order) }}
                 </p>
                 <p v-if="timeRemaining(order)" class="muted countdown">
@@ -302,12 +335,12 @@
             </div>
           </div>
 
-          <div class="stack" v-if="schedule.length">
+          <div class="stack" v-if="aggregatedSchedule.length">
             <h3>Pull-out schedule</h3>
             <div
               class="schedule"
-              v-for="item in schedule"
-              :key="item.orderId"
+              v-for="item in aggregatedSchedule"
+              :key="item.key"
               :class="[`type-${item.eggType}`, { ready: isReady(item.readyAt) }]"
             >
               <div class="order-info">
@@ -391,6 +424,17 @@ const orderForm = reactive({
 const soundEnabled = ref(true);
 const soundReady = ref(false);
 const soundUnsupported = ref(false);
+const notifications = ref<
+  Array<{ id: string; type: "info" | "success" | "warning" | "error"; title: string; message: string }>
+>([]);
+const confirmState = reactive({
+  open: false,
+  title: "",
+  message: "",
+  confirmLabel: "Confirm",
+  cancelLabel: "Cancel",
+  resolve: null as null | ((value: boolean) => void)
+});
 
 const userId = useState<string | null>("user-id", () => null);
 
@@ -434,7 +478,85 @@ const userEggs = computed(() =>
   userOrders.value?.reduce((sum, order) => sum + (order.quantity || 0), 0) ?? 0
 );
 
-const nextReadyAt = computed(() => schedule.value?.[0]?.readyAt ?? null);
+const aggregatedOrders = computed(() => {
+  const bucket = new Map<
+    string,
+    {
+      key: string;
+      eggType: string;
+      quantity: number;
+      userName: string;
+      readyAt?: number | null;
+      latestCreatedAt?: number | null;
+    }
+  >();
+  for (const order of orders.value ?? []) {
+    const userName = order.user?.name ?? "Unknown";
+    const key = `${userName}-${order.eggType}`;
+    const existing = bucket.get(key);
+    if (existing) {
+      existing.quantity += order.quantity || 0;
+      existing.latestCreatedAt = Math.max(
+        existing.latestCreatedAt ?? 0,
+        order.createdAt ?? 0
+      );
+      if (order.readyAt && (!existing.readyAt || order.readyAt > existing.readyAt)) {
+        existing.readyAt = order.readyAt;
+      }
+    } else {
+      bucket.set(key, {
+        key,
+        eggType: order.eggType,
+        quantity: order.quantity || 0,
+        userName,
+        readyAt: order.readyAt ?? null,
+        latestCreatedAt: order.createdAt ?? null
+      });
+    }
+  }
+  return Array.from(bucket.values()).sort((a, b) => {
+    return (b.latestCreatedAt ?? 0) - (a.latestCreatedAt ?? 0);
+  });
+});
+
+const aggregatedSchedule = computed(() => {
+  const bucket = new Map<
+    string,
+    {
+      key: string;
+      eggType: string;
+      quantity: number;
+      userName: string;
+      readyAt?: number | null;
+    }
+  >();
+  for (const item of schedule.value ?? []) {
+    const userName = item.userName ?? "Unknown";
+    const keyBase = `${userName}-${item.eggType}`;
+    const existing = bucket.get(keyBase);
+    if (existing) {
+      existing.quantity += item.quantity || 0;
+      if (item.readyAt) {
+        if (!existing.readyAt || item.readyAt < existing.readyAt) {
+          existing.readyAt = item.readyAt;
+        }
+      }
+    } else {
+      bucket.set(keyBase, {
+        key: `${keyBase}-${item.readyAt ?? "na"}`,
+        eggType: item.eggType,
+        quantity: item.quantity || 0,
+        userName,
+        readyAt: item.readyAt ?? null
+      });
+    }
+  }
+  return Array.from(bucket.values()).sort((a, b) => {
+    return (a.readyAt ?? 0) - (b.readyAt ?? 0);
+  });
+});
+
+const nextReadyAt = computed(() => aggregatedSchedule.value?.[0]?.readyAt ?? null);
 const nextReadyCountdown = computed(() =>
   nextReadyAt.value ? getTimeRemaining(nextReadyAt.value, now.value) : ""
 );
@@ -500,43 +622,83 @@ const soundHint = computed(() => {
 });
 
 const register = async () => {
-  const result = await convex.mutation("users:create", {
-    name: registration.name.trim(),
-    role: registration.role
-  });
-  userId.value = result;
-  localStorage.setItem("egg-user-id", result);
+  try {
+    const result = await convex.mutation("users:create", {
+      name: registration.name.trim(),
+      role: registration.role
+    });
+    userId.value = result;
+    localStorage.setItem("egg-user-id", result);
+    notify("success", "Welcome in!", "You are now signed in.");
+  } catch (error) {
+    notify("error", "Could not register", getErrorMessage(error));
+  }
 };
 
 const resetUser = () => {
   userId.value = null;
   localStorage.removeItem("egg-user-id");
+  notify("info", "Signed out", "You can switch roles anytime.");
 };
 
 const placeOrder = async () => {
   if (!currentUser.value) return;
-  await convex.mutation("orders:create", {
-    userId: currentUser.value._id,
-    eggType: orderForm.eggType,
-    quantity: orderForm.quantity
-  });
+  try {
+    await convex.mutation("orders:create", {
+      userId: currentUser.value._id,
+      eggType: orderForm.eggType,
+      quantity: orderForm.quantity
+    });
+    notify("success", "Order placed", "Your eggs are in the queue.");
+  } catch (error) {
+    notify("error", "Order failed", getErrorMessage(error));
+  }
 };
 
 const closeOrders = async () => {
-  await convex.mutation("settings:close", {});
+  const confirmed = await confirmAction({
+    title: "Close ordering?",
+    message: "No new orders will be accepted until a new round starts.",
+    confirmLabel: "Close orders"
+  });
+  if (!confirmed) return;
+  try {
+    await convex.mutation("settings:close", {});
+    notify("warning", "Orders closed", "Cooking can now begin.");
+  } catch (error) {
+    notify("error", "Could not close orders", getErrorMessage(error));
+  }
 };
 
 const startCooking = async () => {
-  await convex.mutation("orders:startCooking", {});
+  const confirmed = await confirmAction({
+    title: "Start cooking now?",
+    message: "This will set timers for every order in the queue.",
+    confirmLabel: "Start cooking"
+  });
+  if (!confirmed) return;
+  try {
+    await convex.mutation("orders:startCooking", {});
+    notify("success", "Cooking started", "Timers are running.");
+  } catch (error) {
+    notify("error", "Could not start cooking", getErrorMessage(error));
+  }
 };
 
 const reopenOrders = async () => {
-  const confirmed = window.confirm(
-    "Start a new round? This will clear all current orders and reopen ordering."
-  );
+  const confirmed = await confirmAction({
+    title: "Start a new round?",
+    message: "This clears all current orders and reopens ordering.",
+    confirmLabel: "Start new round"
+  });
   if (!confirmed) return;
   chimedIds.clear();
-  await convex.mutation("settings:reopen", {});
+  try {
+    await convex.mutation("settings:reopen", {});
+    notify("success", "New round started", "Orders are open again.");
+  } catch (error) {
+    notify("error", "Could not start new round", getErrorMessage(error));
+  }
 };
 
 const eggLabel = (eggType: string) => getEggLabel(eggType);
@@ -615,10 +777,17 @@ const toggleSound = () => {
   if (soundEnabled.value) {
     unlockAudio();
   }
+  notify("info", "Sound cues", soundEnabled.value ? "Audio enabled." : "Audio muted.");
 };
 
 watch(soundEnabled, (value) => {
   localStorage.setItem("egg-sound-enabled", value ? "true" : "false");
+});
+
+watch(errorBanner, (value) => {
+  if (value) {
+    notify("error", "Connection issue", value);
+  }
 });
 
 watch([now, userOrders, schedule], () => {
@@ -644,6 +813,42 @@ onMounted(() => {
     unlockAudio();
   }
 });
+
+const notify = (
+  type: "info" | "success" | "warning" | "error",
+  title: string,
+  message: string
+) => {
+  const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  notifications.value = [{ id, type, title, message }, ...notifications.value].slice(0, 5);
+  window.setTimeout(() => dismissNotification(id), 5000);
+};
+
+const dismissNotification = (id: string) => {
+  notifications.value = notifications.value.filter((note) => note.id !== id);
+};
+
+const confirmAction = (options: { title: string; message: string; confirmLabel: string }) => {
+  return new Promise<boolean>((resolve) => {
+    confirmState.open = true;
+    confirmState.title = options.title;
+    confirmState.message = options.message;
+    confirmState.confirmLabel = options.confirmLabel;
+    confirmState.cancelLabel = "Cancel";
+    confirmState.resolve = resolve;
+  });
+};
+
+const resolveConfirm = (value: boolean) => {
+  confirmState.open = false;
+  confirmState.resolve?.(value);
+  confirmState.resolve = null;
+};
+
+const getErrorMessage = (error: unknown) => {
+  if (error instanceof Error) return error.message;
+  return "Something went wrong. Please try again.";
+};
 </script>
 
 <style scoped>
@@ -786,6 +991,16 @@ h1 {
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.7);
   border: 1px solid rgba(221, 196, 170, 0.6);
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.step:hover,
+.step:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(52, 34, 23, 0.12);
+  outline: none;
 }
 
 .step-number {
@@ -915,6 +1130,103 @@ h1 {
   z-index: 1;
 }
 
+.toasts {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  display: grid;
+  gap: 12px;
+  z-index: 50;
+  width: min(320px, 90vw);
+}
+
+.toast {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 14px 16px;
+  border: 1px solid rgba(221, 196, 170, 0.6);
+  box-shadow: 0 18px 40px rgba(52, 34, 23, 0.15);
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.toast.success {
+  border-left: 4px solid var(--ready);
+}
+
+.toast.warning {
+  border-left: 4px solid var(--accent-strong);
+}
+
+.toast.error {
+  border-left: 4px solid var(--warning);
+}
+
+.toast.info {
+  border-left: 4px solid #8c776a;
+}
+
+.toast-title {
+  margin: 0 0 4px;
+  font-weight: 600;
+}
+
+.toast-message {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 14px;
+}
+
+.toast-close {
+  border: none;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 18px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(27, 20, 15, 0.45);
+  display: grid;
+  place-items: center;
+  z-index: 40;
+  padding: 20px;
+}
+
+.modal {
+  background: #fffdfb;
+  border-radius: 20px;
+  padding: 22px;
+  border: 1px solid rgba(221, 196, 170, 0.6);
+  box-shadow: 0 30px 60px rgba(52, 34, 23, 0.25);
+  max-width: 380px;
+  width: 100%;
+  display: grid;
+  gap: 12px;
+}
+
+.modal-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.modal-message {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 .content {
   display: grid;
   gap: 24px;
@@ -943,6 +1255,7 @@ h1 {
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
+  flex-wrap: wrap;
 }
 
 .panel-eyebrow {
@@ -1063,22 +1376,30 @@ h1 {
 
 .order-layout {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 20px;
+  align-items: start;
+}
+
+.order-layout > * {
+  min-width: 0;
 }
 
 .order-summary {
-  background: rgba(255, 255, 255, 0.7);
+  background: #fffdfb;
   border-radius: 20px;
   border: 1px solid var(--border);
   padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-width: 0;
+  width: 100%;
+  box-shadow: 0 18px 40px rgba(52, 34, 23, 0.08);
 }
 
 .summary-card {
-  background: #fffdfb;
+  background: #ffffff;
   border-radius: 16px;
   padding: 14px;
   border: 1px solid rgba(221, 196, 170, 0.6);
@@ -1087,18 +1408,22 @@ h1 {
 }
 
 .summary-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  gap: 6px 12px;
   font-size: 14px;
   color: var(--ink-soft);
+}
+
+.summary-row strong {
+  text-align: right;
 }
 
 .summary-note {
   padding: 12px;
   border-radius: 14px;
-  background: rgba(245, 162, 74, 0.12);
+  background: #fff4e6;
 }
 
 .order-grid {
@@ -1117,7 +1442,7 @@ h1 {
   align-items: center;
   cursor: pointer;
   transition: all 0.2s ease;
-  background: rgba(255, 255, 255, 0.9);
+  background: #ffffff;
 }
 
 .egg-choice input {
@@ -1366,6 +1691,8 @@ h1 {
   }
 }
 
+
+
 @media (max-width: 720px) {
   .order-actions {
     flex-direction: column;
@@ -1379,6 +1706,14 @@ h1 {
   }
 
   .status {
+    text-align: left;
+  }
+
+  .summary-row {
+    grid-template-columns: 1fr;
+  }
+
+  .summary-row strong {
     text-align: left;
   }
 }

@@ -13,7 +13,7 @@ export const eggTypes = [
     label: "na hniličku",
     tag: "Jammy",
     description: "A jammy center with tender whites.",
-    minutes: 7
+    minutes: 6.5
   },
   {
     value: "hard",
