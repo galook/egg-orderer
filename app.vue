@@ -254,17 +254,20 @@ const { data: settings } = useConvexQuery(
 
 const { data: orders } = useConvexQuery(
   () => ({ name: "orders:list", args: {} }),
-  convex
+  convex,
+  []
 );
 
 const { data: userOrders } = useConvexQuery(
   () => (userId.value ? { name: "orders:listByUser", args: { userId: userId.value } } : null),
-  convex
+  convex,
+  []
 );
 
 const { data: schedule } = useConvexQuery(
   () => ({ name: "orders:schedule", args: {} }),
-  convex
+  convex,
+  []
 );
 
 const canRegister = computed(() => registration.name.trim().length > 1);

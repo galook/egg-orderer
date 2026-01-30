@@ -6,7 +6,8 @@ export default defineConfig({
   plugins: [vue()],
   test: {
     environment: "happy-dom",
-    globals: true
+    globals: true,
+    exclude: ["tests/e2e/**", "node_modules/**"]
   },
   resolve: {
     alias: {
