@@ -1,0 +1,16 @@
+{
+  "name": "egg-orderer",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "nuxt build",
+    "preview": "nuxt preview",
+    "convex:dev": "convex dev",
+    "convex:deploy": "convex deploy"
+  },
+  "dependencies": {
+    "convex": "^1.12.0",
+    "nuxt": "^3.12.0"
+  }
+}
