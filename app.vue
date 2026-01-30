@@ -158,6 +158,9 @@
           >
             Start cooking
           </button>
+          <button class="danger" @click="reopenOrders">
+            Start new round
+          </button>
         </div>
         <div class="notice" v-if="settings?.cookingStartedAt">
           Cooking started at {{ formatTime(settings?.cookingStartedAt) }}. Follow the pull-out schedule below.
@@ -311,6 +314,15 @@ const closeOrders = async () => {
 
 const startCooking = async () => {
   await convex.mutation("orders:startCooking", {});
+};
+
+const reopenOrders = async () => {
+  const confirmed = window.confirm(
+    "Start a new round? This will clear all current orders and reopen ordering."
+  );
+  if (!confirmed) return;
+  chimedIds.clear();
+  await convex.mutation("settings:reopen", {});
 };
 
 const eggLabel = (eggType: string) => getEggLabel(eggType);
@@ -668,6 +680,20 @@ h1 {
   padding: 12px 18px;
   border-radius: 14px;
   cursor: pointer;
+}
+
+.danger {
+  background: #fbe9e6;
+  border: 1px solid #ebb2a7;
+  color: #8f2e1c;
+  padding: 12px 18px;
+  border-radius: 14px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.danger:hover {
+  background: #f8d8d2;
 }
 
 .button-row {
