@@ -15,7 +15,9 @@ export const useConvexQuery = (
       return;
     }
 
-    const subscription = client.watchQuery(query.name, query.args).onUpdate(
+    const subscription = client.onUpdate(
+      query.name,
+      query.args,
       (result) => {
         data.value = result;
         error.value = null;

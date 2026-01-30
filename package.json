@@ -7,10 +7,18 @@
     "build": "nuxt build",
     "preview": "nuxt preview",
     "convex:dev": "convex dev",
-    "convex:deploy": "convex deploy"
+    "convex:deploy": "convex deploy",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "convex": "^1.12.0",
     "nuxt": "^3.12.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.3",
+    "@vue/test-utils": "^2.4.6",
+    "happy-dom": "^20.4.0",
+    "vitest": "^4.0.18"
   }
 }
