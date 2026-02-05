@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
+  eggMinutes,
+  eggSeconds,
+  eggTypes,
   getEggLabel,
   getOrderStatus,
   getScheduleCountdown,
@@ -21,6 +24,13 @@ describe("egg utils", () => {
   it("formats missing time as placeholder", () => {
     expect(formatTime(null)).toBe("--");
     expect(formatTime(undefined)).toBe("--");
+  });
+
+  it("keeps egg timings aligned across minutes and seconds", () => {
+    const medium = eggTypes.find((type) => type.value === "medium");
+    expect(eggMinutes.medium).toBe(6.5);
+    expect(eggSeconds.medium).toBe(390);
+    expect(medium?.minutes).toBe(eggMinutes.medium);
   });
 
   it("returns ordering status while window is open", () => {

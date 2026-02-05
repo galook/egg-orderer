@@ -15,6 +15,8 @@
     "test:all": "npm run test && npm run test:build && npm run test:e2e"
   },
   "dependencies": {
+    "@convex-dev/resend": "^0.2.3",
+    "@vite-pwa/nuxt": "^1.1.0",
     "convex": "^1.12.0",
     "nuxt": "^3.12.0"
   },

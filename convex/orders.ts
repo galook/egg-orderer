@@ -1,11 +1,7 @@
 import { mutationGeneric, queryGeneric } from "convex/server";
 import { v } from "convex/values";
-
-const eggSeconds: Record<string, number> = {
-  soft: 240,
-  medium: 420,
-  hard: 600
-};
+import { internal } from "./_generated/api";
+import { eggSeconds } from "../utils/egg";
 
 const getSettings = async (ctx: any) => {
   return ctx.db
@@ -25,13 +21,15 @@ export const create = mutationGeneric({
     if (settings?.ordersClosed) {
       throw new Error("Orders are closed.");
     }
-    return ctx.db.insert("orders", {
+    const id = await ctx.db.insert("orders", {
       userId: args.userId,
       eggType: args.eggType,
       quantity: args.quantity,
       status: "open",
       createdAt: Date.now()
     });
+    await ctx.scheduler.runAfter(0, internal.emails.sendOrderPlaced, { orderId: id });
+    return id;
   }
 });
 
@@ -72,10 +70,15 @@ export const startCooking = mutationGeneric({
     const startedAt = Date.now();
     const orders = await ctx.db.query("orders").collect();
     for (const order of orders) {
-      const duration = eggSeconds[order.eggType] ?? 420;
+      const duration =
+        eggSeconds[order.eggType as keyof typeof eggSeconds] ?? eggSeconds.medium;
+      const readyAt = startedAt + duration * 1000;
       await ctx.db.patch(order._id, {
         status: "cooking",
-        readyAt: startedAt + duration * 1000
+        readyAt
+      });
+      await ctx.scheduler.runAt(readyAt, internal.emails.sendOrderReady, {
+        orderId: order._id
       });
     }
 

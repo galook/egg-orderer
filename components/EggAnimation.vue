@@ -9,7 +9,9 @@
 </template>
 
 <script setup lang="ts">
-defineProps<{ type: "soft" | "medium" | "hard" }>();
+import type { EggType } from "~/utils/egg";
+
+defineProps<{ type: EggType }>();
 </script>
 
 <style scoped>

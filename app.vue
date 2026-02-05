@@ -45,28 +45,33 @@
         <p class="subtitle">
           A live breakfast command center that turns boiling chaos into perfectly timed eggs.
         </p>
-        <div class="hero-steps">
-          <a class="step" href="#register">
-            <span class="step-number">01</span>
-            <div>
-              <p class="step-title">Register</p>
-              <p class="step-text">Choose a name and role.</p>
+        <div class="hero-steps secondary">
+          <details class="steps-toggle">
+            <summary>Quick steps</summary>
+            <div class="steps-list">
+              <a class="step" href="#register">
+                <span class="step-number">01</span>
+                <div>
+                  <p class="step-title">Register</p>
+                  <p class="step-text">Choose a name and role.</p>
+                </div>
+              </a>
+              <a class="step" href="#order">
+                <span class="step-number">02</span>
+                <div>
+                  <p class="step-title">Order</p>
+                  <p class="step-text">Pick your egg style and quantity.</p>
+                </div>
+              </a>
+              <a class="step" href="#kitchen">
+                <span class="step-number">03</span>
+                <div>
+                  <p class="step-title">Serve</p>
+                  <p class="step-text">Follow the pull-out schedule.</p>
+                </div>
+              </a>
             </div>
-          </a>
-          <a class="step" href="#order">
-            <span class="step-number">02</span>
-            <div>
-              <p class="step-title">Order</p>
-              <p class="step-text">Pick your egg style and quantity.</p>
-            </div>
-          </a>
-          <a class="step" href="#kitchen">
-            <span class="step-number">03</span>
-            <div>
-              <p class="step-title">Serve</p>
-              <p class="step-text">Follow the pull-out schedule.</p>
-            </div>
-          </a>
+          </details>
         </div>
       </div>
 
@@ -137,6 +142,10 @@
               <input v-model="registration.name" placeholder="Your name" />
             </label>
             <label class="field">
+              <span>Email (optional)</span>
+              <input v-model="registration.email" placeholder="you@example.com" type="email" />
+            </label>
+            <label class="field">
               <span>Role</span>
               <select v-model="registration.role">
                 <option value="eater">Eater</option>
@@ -153,15 +162,15 @@
             <p class="role">{{ currentUser.role === "eater" ? "Eater" : "Cooker" }}</p>
             <button class="ghost" @click="resetUser">Switch user</button>
           </div>
-          <div class="helper-card">
-            <p class="pill">How it works</p>
+          <details class="helper-card secondary">
+            <summary class="pill">How it works</summary>
             <ol>
               <li>Pick your role to unlock the right tools.</li>
               <li>Queue orders while the window is open.</li>
               <li>Start cooking and follow the pull-out schedule.</li>
             </ol>
             <p class="muted">Sound cues will chime when eggs are ready.</p>
-          </div>
+          </details>
         </div>
       </section>
 
@@ -224,7 +233,7 @@
             </div>
           </div>
 
-          <aside class="order-summary">
+          <aside class="order-summary secondary">
             <h3>Order summary</h3>
             <div class="summary-card">
               <p class="pill">Selected style</p>
@@ -249,28 +258,34 @@
           </aside>
         </div>
 
-        <div class="stack" v-if="userOrders.length">
+        <div class="stack">
           <h3>Your live order updates</h3>
-          <div
-            class="order-card"
-            :class="[`type-${order.eggType}`, statusTone(order)]"
-            v-for="order in userOrders"
-            :key="order._id"
-          >
-            <div class="order-info">
-              <p class="pill">{{ eggLabel(order.eggType) }}</p>
-              <h4>{{ order.quantity }} egg(s)</h4>
-              <p class="muted">Placed at {{ formatTime(order.createdAt) }}</p>
+          <template v-if="userOrders.length">
+            <div
+              class="order-card"
+              :class="[`type-${order.eggType}`, statusTone(order)]"
+              v-for="order in userOrders"
+              :key="order._id"
+            >
+              <div class="order-info">
+                <p class="pill">{{ eggLabel(order.eggType) }}</p>
+                <h4>{{ order.quantity }} egg(s)</h4>
+                <p class="muted">Placed at {{ formatTime(order.createdAt) }}</p>
+              </div>
+              <div class="status">
+                <p class="label">Status</p>
+                <p class="value" :class="{ ready: isReady(order.readyAt) }">
+                  {{ orderStatus(order) }}
+                </p>
+                <p v-if="timeRemaining(order)" class="muted countdown">
+                  {{ timeRemaining(order) }} left
+                </p>
+              </div>
             </div>
-            <div class="status">
-              <p class="label">Status</p>
-              <p class="value" :class="{ ready: isReady(order.readyAt) }">
-                {{ orderStatus(order) }}
-              </p>
-              <p v-if="timeRemaining(order)" class="muted countdown">
-                {{ timeRemaining(order) }} left
-              </p>
-            </div>
+          </template>
+          <div v-else class="empty-state">
+            <p>No orders yet.</p>
+            <span>Pick a style and place an order to start tracking.</span>
           </div>
         </div>
       </section>
@@ -368,7 +383,7 @@
         </div>
       </section>
 
-      <section class="panel panel-compact">
+      <section class="panel panel-compact secondary">
         <h2>Breakfast status</h2>
         <p class="muted">At-a-glance health for the current round.</p>
         <div class="mini-stats">
@@ -388,7 +403,7 @@
       </section>
     </main>
 
-    <footer class="footer">
+    <footer class="footer secondary">
       <p>Egg Orderer · Built for crisp mornings and perfect timing.</p>
     </footer>
   </div>
@@ -413,6 +428,7 @@ const now = useNow();
 
 const registration = reactive({
   name: "",
+  email: "",
   role: "eater"
 });
 
@@ -625,6 +641,7 @@ const register = async () => {
   try {
     const result = await convex.mutation("users:create", {
       name: registration.name.trim(),
+      email: registration.email.trim() || undefined,
       role: registration.role
     });
     userId.value = result;
@@ -890,11 +907,12 @@ const getErrorMessage = (error: unknown) => {
 
 .page {
   min-height: 100vh;
-  padding: 56px clamp(20px, 4vw, 72px) 90px;
+  padding: 40px clamp(20px, 4vw, 72px) 90px;
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 24px;
   position: relative;
+  isolation: isolate;
   overflow: hidden;
   max-width: 1280px;
   margin: 0 auto;
@@ -927,7 +945,7 @@ const getErrorMessage = (error: unknown) => {
 .hero {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
-  gap: 32px;
+  gap: 24px;
   align-items: start;
   position: relative;
   z-index: 1;
@@ -970,16 +988,76 @@ h1 {
 }
 
 .subtitle {
-  font-size: 18px;
+  font-size: 16px;
   color: var(--ink-soft);
-  margin: 16px 0 0;
+  margin: 12px 0 0;
   max-width: 520px;
 }
 
 .hero-steps {
-  margin-top: 24px;
+  margin-top: 14px;
+}
+
+.secondary {
+  opacity: 0.78;
+}
+
+.panel.secondary {
+  box-shadow: none;
+  border: 1px solid rgba(221, 196, 170, 0.5);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.order-summary.secondary {
+  box-shadow: none;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.footer.secondary {
+  opacity: 0.6;
+}
+
+.steps-toggle {
+  border-radius: 18px;
+  border: 1px dashed rgba(221, 196, 170, 0.6);
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.65);
+}
+
+.steps-toggle[open] {
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.steps-toggle summary {
+  display: flex;
+  align-items: center;
+  list-style: none;
+  cursor: pointer;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.26em;
+  color: #9b7562;
+}
+
+.steps-toggle summary::-webkit-details-marker {
+  display: none;
+}
+
+.steps-list {
   display: grid;
-  gap: 12px;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.helper-card summary {
+  display: flex;
+  align-items: center;
+  list-style: none;
+  cursor: pointer;
+}
+
+.helper-card summary::-webkit-details-marker {
+  display: none;
 }
 
 .step {
@@ -1127,7 +1205,7 @@ h1 {
   display: flex;
   gap: 10px;
   align-items: center;
-  z-index: 1;
+  z-index: 2;
 }
 
 .toasts {
@@ -1232,7 +1310,7 @@ h1 {
   gap: 24px;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   position: relative;
-  z-index: 1;
+  z-index: 2;
 }
 
 .panel {
@@ -1376,7 +1454,6 @@ h1 {
 
 .order-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
   gap: 20px;
   align-items: start;
 }
@@ -1395,6 +1472,7 @@ h1 {
   gap: 12px;
   min-width: 0;
   width: 100%;
+  align-self: start;
   box-shadow: 0 18px 40px rgba(52, 34, 23, 0.08);
 }
 
@@ -1667,7 +1745,7 @@ h1 {
   text-align: center;
   color: #8c776a;
   font-size: 13px;
-  z-index: 1;
+  z-index: 2;
 }
 
 @keyframes fadeIn {
@@ -1690,10 +1768,45 @@ h1 {
     grid-template-columns: 1fr;
   }
 }
-
-
-
 @media (max-width: 720px) {
+  .page {
+    padding: 28px 18px 72px;
+    gap: 18px;
+  }
+
+  .status-card {
+    padding: 18px;
+  }
+
+  .status-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .content {
+    grid-template-columns: 1fr;
+  }
+
+  .panel {
+    padding: 22px;
+  }
+
+  .register-grid,
+  .order-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .subtitle {
+    max-width: none;
+  }
+
+  .toasts {
+    top: auto;
+    bottom: 16px;
+    right: 16px;
+    left: 16px;
+    width: auto;
+  }
+
   .order-actions {
     flex-direction: column;
     align-items: stretch;
@@ -1715,6 +1828,26 @@ h1 {
 
   .summary-row strong {
     text-align: left;
+  }
+}
+
+@media (max-width: 520px) {
+  .page {
+    padding: 24px 14px 64px;
+  }
+
+  .panel {
+    padding: 18px;
+    border-radius: 22px;
+  }
+
+  .order-card,
+  .schedule {
+    padding: 14px;
+  }
+
+  .status-card {
+    border-radius: 20px;
   }
 }
 

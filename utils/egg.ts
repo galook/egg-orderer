@@ -1,4 +1,16 @@
-export type EggType = "soft" | "medium" | "hard";
+export const eggMinutes = {
+  soft: 4,
+  medium: 6.5,
+  hard: 10
+} as const;
+
+export type EggType = keyof typeof eggMinutes;
+
+export const eggSeconds: Record<EggType, number> = {
+  soft: Math.round(eggMinutes.soft * 60),
+  medium: Math.round(eggMinutes.medium * 60),
+  hard: Math.round(eggMinutes.hard * 60)
+};
 
 export const eggTypes = [
   {
@@ -6,21 +18,21 @@ export const eggTypes = [
     label: "na měkko",
     tag: "Silky",
     description: "Silky white with a bright, flowing yolk.",
-    minutes: 4
+    minutes: eggMinutes.soft
   },
   {
     value: "medium",
     label: "na hniličku",
     tag: "Jammy",
     description: "A jammy center with tender whites.",
-    minutes: 6.5
+    minutes: eggMinutes.medium
   },
   {
     value: "hard",
     label: "na tvrdo",
     tag: "Firm",
     description: "Fully set, sliceable, classic breakfast.",
-    minutes: 10
+    minutes: eggMinutes.hard
   }
 ] as const;
 
